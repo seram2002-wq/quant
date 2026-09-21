@@ -8,3 +8,5 @@ lxml
 requests
 finance-datareader
 mplfinance
+pymysql
+python-dotenv
