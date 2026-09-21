@@ -4,8 +4,8 @@ import mplfinance as mpf
 # 셀트리온 시세 가져오기
 df = fdr.DataReader('068270')
 df = df.dropna()
-df = df.iloc[-30:]          # 최근 30개 거래일
-df = df.sort_index()        # 날짜순 정렬 (인덱스가 이미 날짜)
+df = df.iloc[-30:]       
+df = df.sort_index()       
 
 # FinanceDataReader는 이미 Open/High/Low/Close/Volume 컬럼과
 # DatetimeIndex를 주기 때문에 rename/astype 작업이 필요 없습니다.
