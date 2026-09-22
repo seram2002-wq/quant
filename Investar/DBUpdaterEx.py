@@ -1,6 +1,6 @@
 import os
-from dotenv import load_dotenv
-load_dotenv()
+from dotenv import load_dotenv, find_dotenv
+load_dotenv(find_dotenv())
 import pandas as pd
 import pymysql, calendar, time, json
 import FinanceDataReader as fdr
@@ -9,7 +9,7 @@ from threading import Timer
 
 class DBUpdater:
     def __init__(self):
-        """생성자: MariaDB 연결 및 종목코드 딕셔너리 생성"""
+        """생성자: MySQL 연결 및 종목코드 딕셔너리 생성"""
         self.conn = pymysql.connect(host='localhost', user='root',
             password=os.getenv('DB_PASSWORD'), db='INVESTAR', charset='utf8')
 
@@ -26,12 +26,12 @@ class DBUpdater:
             CREATE TABLE IF NOT EXISTS daily_price (
                 code VARCHAR(20),
                 date DATE,
-                open BIGINT(20),
-                high BIGINT(20),
-                low BIGINT(20),
-                close BIGINT(20),
-                diff BIGINT(20),
-                volume BIGINT(20),
+                open BIGINT,
+                high BIGINT,
+                low BIGINT,
+                close BIGINT,
+                diff BIGINT,
+                volume BIGINT,
                 PRIMARY KEY (code, date))
             """
             curs.execute(sql)
@@ -39,7 +39,7 @@ class DBUpdater:
         self.codes = dict()
 
     def __del__(self):
-        """소멸자: MariaDB 연결 해제"""
+        """소멸자: MySQL 연결 해제"""
         self.conn.close()
 
     def read_krx_code(self):
@@ -147,9 +147,13 @@ class DBUpdater:
                 config = json.load(in_file)
                 pages_to_fetch = config['pages_to_fetch']
         except FileNotFoundError:
+            # config.json이 없으면 기본값 100(약 4년치)으로 새로 만든다.
+            # (예전 버전은 실제 사용하는 값(100)과 파일에 저장하는 값(1)이
+            #  서로 달라서, 다음 실행 때 1페이지(10일치)만 받아오는
+            #  버그가 있었음 - 두 값을 일치시켜 수정함)
+            pages_to_fetch = 100
+            config = {'pages_to_fetch': pages_to_fetch}
             with open('config.json', 'w') as out_file:
-                pages_to_fetch = 100
-                config = {'pages_to_fetch': 1}
                 json.dump(config, out_file)
         self.update_daily_price(pages_to_fetch)
 
