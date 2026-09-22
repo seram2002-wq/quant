@@ -20,3 +20,4 @@ CREATE TABLE IF NOT EXISTS daily_price (
 SELECT * FROM company_info;
 SELECT * FROM daily_price;
 SHOW VARIABLES LIKE 'wait_timeout';
+SELECT MIN(date), MAX(date) FROM daily_price;
