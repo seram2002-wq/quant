@@ -21,3 +21,5 @@ SELECT * FROM company_info;
 SELECT * FROM daily_price;
 SHOW VARIABLES LIKE 'wait_timeout';
 SELECT MIN(date), MAX(date) FROM daily_price;
+SELECT code, company FROM company_info WHERE company LIKE '%소프트%';
+SELECT code, company FROM company_info WHERE code = '036570';
