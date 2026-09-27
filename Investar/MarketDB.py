@@ -23,7 +23,9 @@ class MarketDB:
         sql = "SELECT * FROM company_info"
         krx = pd.read_sql(sql, self.conn)
         for idx in range(len(krx)):
-            self.codes[krx['code'].values[idx]] = krx['company'].values[idx]
+            # KRX 원본 데이터에 종목명 앞뒤로 공백이 섞여 들어오는 경우가 있어
+            # strip()으로 제거해서 저장 (이름으로 조회할 때 안 걸리는 문제 방지)
+            self.codes[krx['code'].values[idx]] = krx['company'].values[idx].strip()
 
     def get_daily_price(self, code, start_date=None, end_date=None):
         """KRX 종목의 일별 시세를 데이터프레임 형태로 반환
@@ -74,6 +76,7 @@ class MarketDB:
                 return
             end_date = f"{end_year:04d}-{end_month:02d}-{end_day:02d}"
 
+        code = code.strip()
         codes_keys = list(self.codes.keys())
         codes_values = list(self.codes.values())
 
