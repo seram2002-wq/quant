@@ -1,0 +1,22 @@
+# 3~6장
+pandas
+numpy
+matplotlib
+yfinance
+pandas_datareader
+scipy
+beautifulsoup4
+lxml
+requests
+finance-datareader
+mplfinance
+mpl_finance
+pymysql
+python-dotenv
+
+# 7장: 장고, 슬랙 알림, 백트레이더
+django==5.2.17
+slack_sdk
+backtrader
+
+# 8장: 한국투자증권 API는 requests, python-dotenv, slack_sdk만 사용
