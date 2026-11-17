@@ -100,8 +100,8 @@ and cannot be used as an app name.
 | 관리자 페이지 (`createsuperuser`) | 완료 | `/admin/` 로그인 확인 |
 | 인덱스 페이지 (`index` 앱, 템플릿, CSS) | 완료 | `/index/` 접속 확인 |
 | 계좌 잔고 확인 (`balance` 앱) | 완료 | `/balance/?005930=10&000660=5` 확인 (11-17) |
-| 슬랙 알림 메시지 | 완료 | `7_5.py`로 메시지 전송 확인 (11-17) |
-| 백트레이더 백테스트 | 완료 | `7_6_1.py`, `7_6_2.py` 실행 확인 (11-17) |
+| 슬랙 알림 메시지 | 완료 | `7_5_slack_message.py`로 메시지 전송 확인 (11-17) |
+| 백트레이더 백테스트 | 완료 | `7_6_1_backtrader_rsi.py`, `7_6_2_backtrader_rsi_sma.py` 실행 확인 (11-17) |
 
 ## 관리자 페이지
 
@@ -204,7 +204,7 @@ AttributeError: 'NoneType' object has no attribute 'text'
 
 ## 슬랙 알림 메시지 (2026-11-17)
 
-`7_5.py`로 슬랙 봇이 채널에 메시지를 보내도록 했습니다. 서식이 섞인
+`7_5_slack_message.py`로 슬랙 봇이 채널에 메시지를 보내도록 했습니다. 서식이 섞인
 텍스트(굵게, 코드, 기울임, 취소선)와 빨간 띠가 붙은 "오늘의 증시 KOSPI"
 카드(차트 이미지 포함)가 채널에 올라오는 것을 확인했습니다.
 
@@ -229,7 +229,7 @@ AttributeError: 'NoneType' object has no attribute 'text'
    ```
    pip install slack_sdk
    cd C:\workspaces\quant\quant_실습\ch7
-   python 7_5.py
+   python 7_5_slack_message.py
    ```
 
 ### 책 원본 대비 수정
@@ -242,8 +242,8 @@ AttributeError: 'NoneType' object has no attribute 'text'
 
 ### 겪은 문제
 
-- **`can't open file ... 7_5.py`**: 장고 폴더(`C:\mySite\Investar`)에서 실행함.
-  `7_5.py`는 `quant_실습\ch7`에 있으므로 폴더를 옮겨서 실행
+- **`can't open file ... 7_5_slack_message.py`**: 장고 폴더(`C:\mySite\Investar`)에서 실행함.
+  `7_5_slack_message.py`는 `quant_실습\ch7`에 있으므로 폴더를 옮겨서 실행
 - **`전송 실패: invalid_auth`**: `.env`에 봇 토큰이 아닌 다른 값(24자)을 넣음.
   "OAuth & Permissions"의 `xoxb-`로 시작하는 토큰으로 교체
 - **`전송 실패: channel_not_found`**: `SLACK_CHANNEL`에 워크스페이스 이름을
@@ -268,18 +268,18 @@ AttributeError: 'NoneType' object has no attribute 'text'
 ```
 pip install backtrader
 cd C:\workspaces\quant\quant_실습\ch7
-python 7_6_1.py
-python 7_6_2.py
+python 7_6_1_backtrader_rsi.py
+python 7_6_2_backtrader_rsi_sma.py
 ```
 
 | 파일 | 내용 |
 |---|---|
-| `7_6_1.py` | RSI(14일)가 30 미만이면 매수, 70 초과면 매도. 한 번에 30주 거래 |
-| `7_6_2.py` | RSI_SMA(21일) 전략 + 수수료 0.14% + 매매 로그. 자산의 90%로 거래, 캔들 차트 |
+| `7_6_1_backtrader_rsi.py` | RSI(14일)가 30 미만이면 매수, 70 초과면 매도. 한 번에 30주 거래 |
+| `7_6_2_backtrader_rsi_sma.py` | RSI_SMA(21일) 전략 + 수수료 0.14% + 매매 로그. 자산의 90%로 거래, 캔들 차트 |
 
 공통 조건: 초기 투자금 10,000,000원.
 
-### 7_6_1.py 실행 결과
+### 7_6_1_backtrader_rsi.py 실행 결과
 
 ![엔씨소프트 RSI 백테스트](images/7_6_1.png)
 
@@ -289,7 +289,7 @@ python 7_6_2.py
 - 최종 자산: 12,925,000원 (초기 10,000,000원 대비 +2,925,000원, +29.25%)
 - 차트 창을 닫아야 프로그램이 끝납니다.
 
-### 7_6_2.py 실행 결과
+### 7_6_2_backtrader_rsi_sma.py 실행 결과
 
 ![엔씨소프트 RSI_SMA 백테스트](images/7_6_2.png)
 
@@ -297,7 +297,7 @@ python 7_6_2.py
 - 3년 동안 매수 5회, 매도 4회가 일어났습니다. 끝난 거래 4건은 모두 이익이었고,
   마지막 매수분은 기간 종료 시점에 보유 중입니다.
 - 최종 자산: 15,589,973원 (초기 10,000,000원 대비 +5,589,973원, +55.90%)
-- `7_6_1.py`보다 수익이 큰 이유: 30주 고정이 아니라 자산의 90%를 매번
+- `7_6_1_backtrader_rsi.py`보다 수익이 큰 이유: 30주 고정이 아니라 자산의 90%를 매번
   투입했고, RSI 기간이 달라 매매 신호가 더 자주 나왔기 때문입니다.
   수수료 0.14%는 매수·매도 때마다 빠집니다.
 
@@ -337,12 +337,12 @@ data = bt.feeds.PandasData(dataname=df)
 ```
 ch7/
 ├── README.md
-├── 7_5.py          # 슬랙 알림 메시지 (slack_sdk)
-├── 7_6_1.py        # 백트레이더 RSI 전략
-├── 7_6_2.py        # 백트레이더 RSI_SMA 전략 + 수수료 + 매매 로그
+├── 7_5_slack_message.py         # 슬랙 알림 메시지 (slack_sdk)
+├── 7_6_1_backtrader_rsi.py      # 백트레이더 RSI 전략
+├── 7_6_2_backtrader_rsi_sma.py  # 백트레이더 RSI_SMA 전략 + 수수료 + 매매 로그
 └── images/
-    ├── 7_6_1.png   # 7_6_1.py 실행 결과 차트
-    └── 7_6_2.png   # 7_6_2.py 실행 결과 차트
+    ├── 7_6_1.png                # 7_6_1_backtrader_rsi.py 실행 결과 차트
+    └── 7_6_2.png                # 7_6_2_backtrader_rsi_sma.py 실행 결과 차트
 ```
 
 장고 프로젝트(7.1~7.4절)는 이 폴더가 아니라 `C:\mySite\Investar`에 있습니다.

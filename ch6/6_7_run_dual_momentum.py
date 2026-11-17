@@ -2,13 +2,13 @@ import sys, os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from importlib import import_module
  
-# 6_7.py가 있는 폴더를 모듈 검색 경로에 추가
+# 6_7_dual_momentum.py가 있는 폴더를 모듈 검색 경로에 추가
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from importlib import util as _util
  
 spec = _util.spec_from_file_location(
     "dual_momentum",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "6_7.py"))
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "6_7_dual_momentum.py"))
 dual_momentum = _util.module_from_spec(spec)
 spec.loader.exec_module(dual_momentum)
  

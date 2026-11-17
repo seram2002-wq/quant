@@ -20,3 +20,6 @@ slack_sdk
 backtrader
 
 # 8장: 한국투자증권 API는 requests, python-dotenv, slack_sdk만 사용
+
+# 9장: 딥러닝 주가 예측 (케라스 포함)
+tensorflow==2.21.0
