@@ -22,6 +22,7 @@ quant_실습/
 ├── ch5/            # 5장: MySQL 연동, DB 저장/조회
 ├── ch6/            # 6장: 포트폴리오 분석 (Efficient Frontier 등)
 ├── ch7/            # 7장: 장고 웹 서버 실습 기록 (프로젝트는 C:\mySite\Investar)
+├── ch8/            # 8장: 변동성 돌파 전략 (한국투자증권 모의투자)
 ├── Investar/       # 공용 모듈 패키지
 │   ├── Analyzer.py       # MarketDB 클래스 (DB 조회 전용)
 │   ├── MarketDB.py       # Analyzer.py와 동일 내용으로 동기화한 조회 모듈

@@ -2,3 +2,6 @@
 config.json
 
 __pycache__/
+
+# 한국투자증권 API 접근 토큰 (ch8)
+.kis_token_*.json
