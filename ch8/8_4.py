@@ -23,7 +23,9 @@
 import os
 import sys
 import time
+import socket
 from datetime import datetime
+from pathlib import Path
 
 from kis import KIS, KISError
 from strategy import analyze, is_buy_signal
@@ -54,9 +56,20 @@ except ImportError:
 _slack_channel = os.getenv('SLACK_CHANNEL', '#general')
 
 
+LOG_DIR = Path(__file__).parent / 'logs'    # 날짜별 로그 파일 (logs\YYYYMMDD.log)
+
+
 def printlog(message):
-    """화면에만 출력한다."""
-    print(datetime.now().strftime('[%m/%d %H:%M:%S]'), message, flush=True)
+    """화면에 출력하고 로그 파일에도 남긴다 (슬랙으로는 보내지 않는다)."""
+    line = datetime.now().strftime('[%m/%d %H:%M:%S] ') + str(message)
+    print(line, flush=True)
+    try:                                    # 작업 스케줄러로 실행하면 화면을 못 보므로 파일에도 기록
+        LOG_DIR.mkdir(exist_ok=True)
+        log_file = LOG_DIR / (datetime.now().strftime('%Y%m%d') + '.log')
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(line + '\n')
+    except OSError:
+        pass
 
 
 def dbgout(message):
@@ -236,6 +249,16 @@ def run_test(trader):
 
 
 def main():
+    # 프로그램이 두 개 동시에 돌면 같은 종목을 두 번 살 수 있으므로 하나만 실행되게 한다.
+    # (같은 포트는 한 프로그램만 쓸 수 있다는 점을 이용. 프로그램이 끝나면 자동으로 풀림)
+    global _single_instance_lock
+    _single_instance_lock = socket.socket()
+    try:
+        _single_instance_lock.bind(('127.0.0.1', 47284))
+    except OSError:
+        printlog('자동매매가 이미 실행 중입니다. 이 창은 종료합니다.')
+        return
+
     kis = KIS()
     trader = Trader(kis)
     trader.prepare()
@@ -269,9 +292,14 @@ def main():
                     reported_hour = t_now.hour          # 매시 30분에 한 번 잔고 알림
                     trader.report()
             if t_sell < t_now < t_exit:                 # 일괄 매도 구간
+                _, stocks = kis.get_balance()
+                had_stocks = any(s['code'] in SYMBOLS for s in stocks)
                 if trader.sell_all():
                     trader.report()
-                    dbgout('모든 종목을 매도했습니다. 자동매매를 종료합니다.')
+                    if had_stocks:
+                        dbgout('모든 종목을 매도했습니다. 자동매매를 종료합니다.')
+                    else:
+                        dbgout('오늘은 매수한 종목이 없습니다. 자동매매를 종료합니다.')
                     return
                 dbgout('주의: 아직 팔리지 않은 종목이 있습니다.')
             if t_exit < t_now:                          # 장 마감 전 종료
