@@ -270,8 +270,13 @@ class KIS:
         raise KISError('주문 가능 금액을 응답에서 찾지 못했습니다.')
 
     # ------------------------------------------------------------ 주문
-    def _order(self, side, code, qty, price):
-        """현금 주문을 넣고 주문번호를 돌려준다. price가 0이면 시장가 주문."""
+    def _order(self, side, code, qty, price, best=False):
+        """현금 주문을 넣고 주문번호를 돌려준다.
+
+        price가 0이면 시장가, best=True면 최유리 지정가로 주문한다.
+        한국투자증권의 주문구분 코드(ORD_DVSN): 00 지정가, 01 시장가, 03 최유리지정가
+        (증권사마다 코드가 다르다. 예: 키움증권은 03 시장가, 06 최유리지정가)
+        """
         qty, price = int(qty), int(price)
         if qty <= 0:
             raise KISError('주문 수량은 1 이상이어야 합니다.')
@@ -283,12 +288,16 @@ class KIS:
         # 모의 VTTC0012U(매수) / VTTC0011U(매도), 실전은 첫 글자가 T
         tr_id = self.server['tr_prefix'] + \
             ('TTC0012U' if side == 'buy' else 'TTC0011U')
+        if best:
+            ord_dvsn, price = '03', 0                  # 최유리지정가
+        else:
+            ord_dvsn = '01' if price == 0 else '00'    # 시장가 / 지정가
         body = {
             'CANO': self.cano, 'ACNT_PRDT_CD': self.acnt_prdt_cd,
             'PDNO': code,
-            'ORD_DVSN': '01' if price == 0 else '00',  # 01 시장가, 00 지정가
+            'ORD_DVSN': ord_dvsn,
             'ORD_QTY': str(qty),
-            'ORD_UNPR': str(price),                    # 시장가는 0
+            'ORD_UNPR': str(price),                    # 시장가, 최유리는 0
             'EXCG_ID_DVSN_CD': 'KRX',                  # 한국거래소
         }
         if side == 'sell':
@@ -297,11 +306,32 @@ class KIS:
                           tr_id, body)
         out = data.get('output') or {}
         return {'order_no': out.get('ODNO'), 'time': out.get('ORD_TMD'),
+                'org_no': out.get('KRX_FWDG_ORD_ORGNO'),  # 취소할 때 필요한 주문조직번호
                 'message': data.get('msg1', '').strip()}
 
-    def buy(self, code, qty, price=0):
-        """매수 주문. price를 생략하면 시장가."""
-        return self._order('buy', code, qty, price)
+    def buy(self, code, qty, price=0, best=False):
+        """매수 주문. price를 생략하면 시장가, best=True면 최유리 지정가.
+
+        최유리 지정가: 지금 가장 싸게 나온 매도 가격(매도 1호가)으로 지정가 주문.
+        그 가격의 물량만큼만 체결되고 나머지는 미체결로 남을 수 있다.
+        """
+        return self._order('buy', code, qty, price, best)
+
+    def cancel(self, order):
+        """buy()/sell()이 돌려준 주문의 미체결 잔량을 전부 취소한다."""
+        body = {
+            'CANO': self.cano, 'ACNT_PRDT_CD': self.acnt_prdt_cd,
+            'KRX_FWDG_ORD_ORGNO': order.get('org_no') or '',
+            'ORGN_ODNO': order['order_no'],            # 원래 주문번호
+            'ORD_DVSN': '00',
+            'RVSE_CNCL_DVSN_CD': '02',                 # 01 정정, 02 취소
+            'ORD_QTY': '0', 'ORD_UNPR': '0',
+            'QTY_ALL_ORD_YN': 'Y',                     # 잔량 전부
+            'EXCG_ID_DVSN_CD': 'KRX',
+        }
+        data = self._post('/uapi/domestic-stock/v1/trading/order-rvsecncl',
+                          self.server['tr_prefix'] + 'TTC0013U', body)
+        return data.get('msg1', '').strip()
 
     def sell(self, code, qty, price=0):
         """매도 주문. price를 생략하면 시장가."""

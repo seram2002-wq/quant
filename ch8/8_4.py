@@ -8,9 +8,15 @@
 #   15:20 이후   종료
 # 매매와 오류는 슬랙으로도 알린다.
 #
+# 테스트 모드:  python 8_4.py --test
+#   매수 조건과 상관없이 대상 ETF를 1주씩(최대 5종목) 바로 사고, 3분 뒤 전부 판다.
+#   자동 매수 → 슬랙 알림 → 자동 매도 → 종료의 전체 흐름을 확인하는 용도이며,
+#   모의투자에서만 동작한다.
+#
 # 책과 다른 점
 #   - 대신증권 크레온 대신 한국투자증권 API(kis.py) 사용
-#   - 주문은 시장가 (책은 최유리 FOK/IOC)
+#   - 매수는 최유리 지정가 후 미체결 잔량 취소, 매도는 시장가
+#     (책은 매수 최유리 FOK, 매도 최유리 IOC)
 #   - 목표가와 이동평균은 하루에 한 번만 계산 (모의투자 호출 제한 때문)
 #   - 다시 실행했을 때 이미 보유한 종목은 매수한 것으로 처리 (중복 매수 방지)
 #   - 매도는 대상 ETF(SYMBOLS)만 (책은 계좌의 모든 종목을 매도)
@@ -35,6 +41,8 @@ SYMBOLS = {
 }
 TARGET_BUY_COUNT = 5        # 하루에 매수할 최대 종목 수
 BUY_PERCENT = 0.19          # 종목당 주문 비율 (5종목 × 19% = 95%, 나머지는 여유분)
+TEST_HOLD_SECONDS = 180     # 테스트 모드에서 매수 후 매도까지 기다리는 시간(초)
+ORDER_WAIT_TRIES = 3        # 매수 주문 후 체결 확인 횟수 (2초 간격)
 
 # ---------------------------------------------------------------- 슬랙
 try:
@@ -86,11 +94,18 @@ class Trader:
                f'종목당 {BUY_PERCENT:.0%} = {self.buy_amount:,}원, '
                f'보유 종목 {len(stocks)}개')
 
-    def buy_etf(self, code):
-        """매수 조건을 만족하면 시장가로 매수한다. 매수했으면 True."""
+    def buy_etf(self, code, test=False):
+        """매수 조건을 만족하면 최유리 지정가로 매수한다. 매수했으면 True.
+
+        test=True면 조건을 보지 않고 1주만 산다 (테스트 모드 전용).
+        """
         if code in self.bought_list:
             return False
         name = SYMBOLS[code]
+        if test:
+            price = self.kis.get_price(code)['price']
+            printlog(f'{name}({code}) : [테스트] 현재가 {price:,} → 1주 최유리 지정가 매수 주문')
+            return self._order_buy(code, name, 1)
         if code not in self.infos:
             info = analyze(self.kis, code)
             if info is None:                            # 오늘 시세 없음
@@ -112,21 +127,56 @@ class Trader:
             self.bought_list.append(code)               # 다시 시도하지 않음
             return False
         printlog(f'{name}({code}) : 현재가 {price:,} > 목표가 {info["target"]:,.0f} '
-                 f'→ {qty}주 시장가 매수 주문')
+                 f'→ {qty}주 최유리 지정가 매수 주문')
+        return self._order_buy(code, name, qty)
+
+    def _held_qty(self, code):
+        """잔고에서 해당 종목의 (보유 수량, 매입 평균가)를 돌려준다."""
+        _, stocks = self.kis.get_balance()
+        held = next((s for s in stocks if s['code'] == code), None)
+        return (held['qty'], held['avg_price']) if held else (0, 0)
+
+    def _order_buy(self, code, name, qty):
+        """최유리 지정가로 매수하고, 체결되지 않은 잔량은 취소한다.
+
+        최유리 지정가는 매도 1호가에 나온 물량만큼만 체결되므로 일부가 미체결로
+        남을 수 있다. 미체결 주문이 남아 있으면 나중에 엉뚱한 때 체결될 수 있어서,
+        잠시 기다린 뒤 잔량을 취소하고 체결된 수량만 보유한다.
+        """
         self.bought_list.append(code)                   # 성공이든 실패든 오늘은 다시 주문하지 않음
         try:
-            self.kis.buy(code, qty)
+            order = self.kis.buy(code, qty, best=True)  # 최유리 지정가
         except KISError as ex:
             dbgout(f'매수 주문 실패 : {name}({code}) {qty}주 → {ex}')
             return False
-        time.sleep(2)
-        _, stocks = self.kis.get_balance()
-        held = next((s for s in stocks if s['code'] == code), None)
-        if held:
-            dbgout(f'매수 : {name}({code}) {held["qty"]:,}주, 매입가 {held["avg_price"]:,}원')
-        else:
-            dbgout(f'매수 주문 : {name}({code}) {qty}주 (체결 확인 전)')
-        return True
+
+        held, avg = 0, 0
+        for _ in range(ORDER_WAIT_TRIES):               # 체결을 기다린다
+            time.sleep(2)
+            held, avg = self._held_qty(code)
+            if held >= qty:
+                break
+        canceled = False
+        if held < qty:                                  # 미체결 잔량 취소
+            try:
+                self.kis.cancel(order)
+                canceled = True
+                printlog(f'{name}({code}) : 미체결 잔량 취소 요청')
+            except KISError as ex:                      # 이미 다 체결됐으면 취소할 것이 없다
+                printlog(f'{name}({code}) : 취소할 잔량 없음 ({ex})')
+            time.sleep(2)
+            held, avg = self._held_qty(code)
+
+        if held >= qty:
+            dbgout(f'매수 : {name}({code}) {held:,}주, 매입가 {avg:,}원')
+        elif held > 0:
+            dbgout(f'매수(일부 체결) : {name}({code}) {held:,}주 / 주문 {qty:,}주, '
+                   f'매입가 {avg:,}원, 나머지는 취소')
+        elif canceled:
+            dbgout(f'매수 미체결 : {name}({code}) {qty:,}주 주문을 취소했습니다.')
+        else:                                           # 취소할 잔량은 없는데 잔고에 아직 안 보임
+            dbgout(f'매수 주문 : {name}({code}) {qty:,}주 (체결됐으나 잔고 반영 전일 수 있음)')
+        return held > 0 or not canceled
 
     def sell_all(self, max_tries=10):
         """보유한 대상 ETF를 모두 시장가로 매도한다. 전부 팔리면 True.
@@ -157,10 +207,41 @@ class Trader:
         dbgout('\n'.join(lines))
 
 
+def run_test(trader):
+    """테스트 모드: 조건 없이 1주씩 사고, 잠시 뒤 전부 판다."""
+    if trader.kis.mode != 'mock':
+        printlog('테스트 모드는 모의투자(KIS_MODE=mock)에서만 실행합니다.')
+        return
+    t_now = datetime.now()
+    hhmm = t_now.hour * 100 + t_now.minute
+    if t_now.weekday() >= 5 or not 905 <= hhmm < 1510:
+        printlog('테스트 모드는 평일 09:05~15:10 사이에만 실행합니다 (장 운영 시간).')
+        return
+    dbgout(f'[테스트 모드] 조건 없이 1주씩 매수하고 {TEST_HOLD_SECONDS // 60}분 뒤 전부 매도합니다.')
+    for code in SYMBOLS:
+        if len(trader.bought_list) >= TARGET_BUY_COUNT:
+            break
+        try:
+            trader.buy_etf(code, test=True)
+        except (KISError, OSError) as ex:
+            dbgout(f'오류 : {SYMBOLS[code]}({code}) {ex}')
+    trader.report()
+    printlog(f'{TEST_HOLD_SECONDS}초 동안 보유한 뒤 매도합니다...')
+    time.sleep(TEST_HOLD_SECONDS)
+    if trader.sell_all(max_tries=4):
+        trader.report()
+        dbgout('[테스트 모드] 모든 종목을 매도했습니다. 종료합니다.')
+    else:
+        dbgout('[테스트 모드] 주의: 아직 팔리지 않은 종목이 있습니다. 잔고를 확인하세요.')
+
+
 def main():
     kis = KIS()
     trader = Trader(kis)
     trader.prepare()
+    if '--test' in sys.argv:
+        run_test(trader)
+        return
     soldout = False                 # 09:00~09:05 매도를 했는지
     reported_hour = None            # 잔고를 알린 시(hour)
     last_error = ''
