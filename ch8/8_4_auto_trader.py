@@ -103,6 +103,8 @@ class Trader:
                 self.bought_list.append(s['code'])
         total_cash = self.kis.get_buyable_cash()
         self.buy_amount = int(total_cash * BUY_PERCENT)
+        printlog('슬랙 알림 : ' + (f'켜짐 (채널 {_slack_channel})' if _slack is not None
+                                  else '꺼짐 (.env에서 SLACK_BOT_TOKEN을 찾지 못함)'))
         dbgout(f'자동매매 시작 ({self.kis.server["name"]}) : 주문 가능 금액 {total_cash:,}원, '
                f'종목당 {BUY_PERCENT:.0%} = {self.buy_amount:,}원, '
                f'보유 종목 {len(stocks)}개')
@@ -261,7 +263,15 @@ def main():
 
     kis = KIS()
     trader = Trader(kis)
-    trader.prepare()
+    for attempt in range(1, 6):                      # 시작 준비가 실패하면 30초 간격으로 다시 시도
+        try:
+            trader.prepare()
+            break
+        except (KISError, OSError) as ex:
+            if attempt == 5:
+                raise
+            printlog(f'시작 준비 실패 ({attempt}/5) : {ex} → 30초 뒤 다시 시도')
+            time.sleep(30)
     if '--test' in sys.argv:
         run_test(trader)
         return

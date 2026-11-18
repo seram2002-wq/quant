@@ -16,7 +16,7 @@ ch9/
 └── images/                      # 실행하면 자동 저장되는 그래프
 ```
 
-| 책 원본 (`quant\quant\09_Deep_Learning_Prediction`) | 실습 파일 |
+| 책 원본 ([Investar/StockAnalysisInPython](https://github.com/Investar/StockAnalysisInPython)의 `09_Deep_Learning_Prediction`) | 실습 파일 |
 |---|---|
 | `ch09_01` ~ `ch09_05` (활성화 함수 5개) | `9_1_activation_functions.py` (한 파일로 모음) |
 | `ch09_06`, `ch09_07` (은닉층, 출력층) | `9_2_mlp.py` |
@@ -151,8 +151,10 @@ Epoch 60/60
   최근 구간에서는 예측이 낮게 나오는 경향이 있음
 - 이 예제는 딥러닝의 구조를 익히는 용도이며, 출력된 예측 종가는 투자
   판단에 쓸 수 있는 값이 아님
-- DB의 마지막 날짜가 2026-09-22였음. MySQL이 꺼져 있던 동안 시세 업데이트가
-  멈춘 것으로 보이며, 예측은 그 날짜의 다음 거래일에 대한 것
+- 위 실행 때 DB의 마지막 날짜가 2026-09-22였음. MySQL이 꺼져 있던 동안 시세
+  업데이트가 멈춘 것으로, 예측은 그 날짜의 다음 거래일에 대한 것. 이후
+  `Investar\DBUpdaterEx.py`로 2026-11-17까지 DB를 채웠으므로, 다시 실행하면
+  최신 날짜 기준으로 예측함
 
 ### 책 원본 대비 수정 사항
 

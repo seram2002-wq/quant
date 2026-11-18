@@ -30,7 +30,8 @@ from pathlib import Path
 import requests
 from dotenv import load_dotenv, find_dotenv
 
-load_dotenv(find_dotenv())
+# override=True: 터미널에 같은 이름의 환경 변수(빈 값 포함)가 있어도 .env 값을 우선한다
+load_dotenv(find_dotenv(), override=True)
 
 # 모의투자와 실전투자는 접속 주소와 TR ID(거래 종류 코드)의 첫 글자만 다르다.
 SERVERS = {
@@ -39,6 +40,10 @@ SERVERS = {
     'real': {'url': 'https://openapi.koreainvestment.com:9443',
              'tr_prefix': 'T', 'interval': 0.1, 'name': '실전투자'},
 }
+
+
+# 호출 제한 오류 코드: 서버가 요청을 처리하지 않고 돌려보낸 것이라 다시 보내도 안전하다
+RATE_LIMIT_CODES = ('EGW00201', 'EGW00215')
 
 
 class KISError(Exception):
@@ -145,7 +150,8 @@ class KIS:
     def _call(self, send):
         """요청을 보내고 결과를 돌려준다.
 
-        호출 제한(EGW00201 초당 거래건수 초과)에 걸리면 잠시 쉬고 다시 시도한다.
+        호출 제한(EGW00201 초당 거래건수 초과, EGW00215 원장 초당 거래건수 초과)에
+        걸리면 잠시 쉬고 다시 시도한다.
         이 오류는 서버가 요청을 처리하지 않고 돌려보낸 것이라 다시 보내도 안전하다.
         """
         for attempt in range(4):
@@ -157,7 +163,7 @@ class KIS:
             data = self._json(res)
             if data.get('rt_cd') == '0':               # '0'이 정상
                 return data
-            if data.get('msg_cd') == 'EGW00201' and attempt < 3:
+            if data.get('msg_cd') in RATE_LIMIT_CODES and attempt < 3:
                 time.sleep(1.5 * (attempt + 1))        # 1.5초, 3초, 4.5초
                 continue
             raise KISError(f"{data.get('msg_cd', res.status_code)} "

@@ -7,6 +7,10 @@
 
 각 장의 자세한 내용과 실행 결과는 장별 `README.md`에 있습니다.
 
+책 원본 코드는 [Investar/StockAnalysisInPython](https://github.com/Investar/StockAnalysisInPython)에
+있습니다. 실습은 3장부터 진행했고, 1~2장 예제와 부록 PDF, PPT 자료는
+`C:\workspaces\quant\book_materials`에 따로 보관했습니다 (이 저장소 밖).
+
 ## 장별 요약
 
 | 장 | 주제 | 주요 내용 | 데이터 출처 |
